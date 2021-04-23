@@ -1,0 +1,870 @@
+
+@cpp(src="ext-cpp/utilities.cpp,ext-cpp/trace_helper.cpp,ext-cpp/proba_helper.cpp",include="utilities.hpp,trace_helper.hpp,proba_helper.hpp")
+
+
+package proxy
+
+
+
+    
+    extern data type distribution_t
+
+    
+    extern function write(float value)
+    
+    extern function distribution_t init_distribution(string function_param_0, int function_param_1)
+    
+    extern function int select(distribution_t function_param_0, int function_param_1)
+    
+    extern function compute_fail(int function_param_0, float function_param_1, int ID)
+   
+    extern function compute_transientFail(int function_param_0, float function_param_1, int ID)
+    
+    extern function compute_repair(int function_param_0, float function_param_1, int ID)
+    
+    extern function printf(string function_param_0, int function_param_1, int function_param_2)
+
+    extern function printf(string function_param_0, int  function_param_1, float function_param_2)
+
+    extern function printf(string function_param_0, float  function_param_1)
+
+    extern function printf(string function_param_0, int  function_param_1)
+
+    extern function printf(string function_param_0)
+    
+    extern function float read()
+    
+    extern function float compute_wf(float rp, float wf, float wh)
+
+    extern function float readMTBF ( int function_param_0)
+
+    extern function float readMTTR ( int function_param_0)
+
+    extern function float readMTTF ( int function_param_0)
+
+  
+    port type Write_Read_Port (float value)
+    
+    port type Silent_Port ()
+    
+    port type Subscribe_Port ()
+
+    
+    connector type RDV_subscribe_connector (Subscribe_Port p0, Subscribe_Port p1)
+        define (p0
+         p1
+        )
+    
+        on p0 p1
+    end
+
+    
+    connector type RDV_read_write_connector (Write_Read_Port p0, Write_Read_Port p1)
+        data float v
+        define (p0
+         p1
+        )
+    
+        on p0 p1
+            down {
+                p1.value = p0.value;
+            }
+    end
+
+    
+    atom type ActuatorBehavior (int ID, string afail, string atranfail, string arepair)
+    
+        
+        data float value
+        
+        data int t
+        
+        data int x
+        
+        data int size0
+        
+        data distribution_t distrib0
+        
+        data distribution_t distrib1
+        
+        data int size1
+        
+        data distribution_t distrib2
+        
+        data int size2
+        
+        data float lambda0
+        
+        data float lambda1
+        
+        data float lambda2
+    
+        
+        
+        export port Write_Read_Port write_actuator(value)
+        
+        
+        port Silent_Port init_device()
+        
+        port Silent_Port fail()
+        
+        port Silent_Port noFail()
+        
+        port Silent_Port transientFail()
+        
+        port Silent_Port noRepair()
+        
+        port Silent_Port noTransientFail()
+        
+        port Silent_Port repair()
+        
+        port Silent_Port write_value()
+        
+        place START, S1, S2, S3, S4, S5, S6
+        initial to START
+            do {
+ 
+	    	lambda0 = readMTBF  (ID); 
+		lambda1 = readMTTF  (ID); 
+		lambda2 = readMTTR (ID);
+
+	    printf("-----------------------------------------------\n");
+	    printf("Execution time on device D.%d \n", ID);
+	    printf("var int D%d.s 0\n", ID);
+	    printf("var int D%d.t %d\n", ID, t);
+
+	    printf("-----------------------------------------------\n");
+            }
+            
+            on init_device
+                from START
+                to S1
+                do {
+
+
+             	
+
+                compute_fail(t, lambda0,ID);
+                compute_transientFail(t, lambda1,ID);
+                compute_repair(t, lambda2,ID);
+
+                distrib0 = init_distribution(afail, size0);
+                distrib1 = init_distribution(atranfail, size1);
+                distrib2 = init_distribution(arepair, size2);
+
+
+
+
+                        x = select(distrib0, size0);
+	    printf("var int D%d.s 1\n", ID);
+	    printf("var int D%d.t %d\n", ID, t);
+                }
+            
+            on fail
+                from S1
+                to S4
+                provided ((x  ==  0))
+	do{
+                        x = select(distrib2, size2);
+	    printf("-----------------------------------------------\n");
+	    printf(" Device D%d  fail \n", ID);
+	    printf("var int D%d.s 4\n", ID);
+	    printf("var int D%d.t %d\n", ID, t);
+	    printf("-----------------------------------------------\n");
+	}
+            
+            on noFail
+                from S1
+                to S3
+                provided ((x  ==  1))
+                do {
+                        x = select(distrib1, size1);
+
+	    printf("-----------------------------------------------\n");
+	    printf(" Device D%d  Nofail \n", ID);
+	    printf("var int D%d.s 3\n", ID);
+	    printf("var int D%d.t %d\n", ID, t);
+	    printf("-----------------------------------------------\n");
+                }
+            
+            on transientFail
+                from S3
+                to START
+                provided ((x  ==  0))
+                do {
+
+	    printf("-----------------------------------------------\n");
+	    printf(" Device D%d  Transientfail \n", ID);
+	    printf("var int D%d.s 0\n", ID);
+	    printf("var int D%d.t %d\n", ID, t);
+	    printf("-----------------------------------------------\n");
+                }
+            
+            on noRepair
+                from S4
+                to S4
+                provided ((x  ==  0))
+		do{	    
+	   printf("-----------------------------------------------\n");
+	    printf(" Device D%d  NoRepair\n", ID);
+	    printf("var int D%d.s 4\n", ID);
+	    printf("var int D%d.t %d\n", ID, t);
+	    printf("-----------------------------------------------\n");
+		}
+            
+            on noTransientFail
+                from S3
+                to S5
+                provided ((x  ==  1))
+            		do{	    
+	   printf("-----------------------------------------------\n");
+	    printf(" Device D%d  NoTransientFail\n", ID);
+	    printf("var int D%d.s 5\n", ID);
+	    printf("var int D%d.t %d\n", ID, t);
+	    printf("-----------------------------------------------\n");
+		}
+            on repair
+                from S4
+                to S5
+                provided ((x  ==  1))
+		do{	    
+	   printf("-----------------------------------------------\n");
+	    printf(" Device D%d  Repair\n", ID);
+	    printf("var int D%d.s 5\n", ID);
+	    printf("var int D%d.t %d\n", ID, t);
+	    printf("-----------------------------------------------\n");
+		}
+            
+            on write_value
+                from S6
+                to START
+                do {
+                        write(value);
+	    printf("var int D%d.s 0\n", ID);
+	    printf("var int D%d.t %d\n", ID, t);
+                }
+            
+            on write_actuator
+                from S5
+                to S6 do {
+                        
+	    printf("-----------------------------------------------\n");
+	    printf(" Device D%d  Writing\n", ID);
+	    printf("var int D%d.s 6\n", ID);
+	    printf("var int D%d.t %d\n", ID, t);
+	    printf("-----------------------------------------------\n");
+
+		t = (t  +  5000);
+	}
+    
+    
+    end
+
+    
+    atom type SensorBehavior (int ID,string sfail, string stranfail, string srepair)
+    
+        
+        data float value
+        
+        data int t
+        
+        data int x
+        
+        data int size0
+        
+        data distribution_t distrib0
+        
+        data distribution_t distrib1
+        
+        data int size1
+        
+        data distribution_t distrib2
+        
+        data int size2
+        
+        data float lambda0
+        
+        data float lambda1
+        
+        data float lambda2
+    
+        
+        
+        export port  Write_Read_Port read_sensor(value)
+        
+        export port Subscribe_Port subscribe()
+        
+        port Silent_Port init_device()
+        
+        port Silent_Port fail()
+        
+        port Silent_Port noFail()
+        
+        port Silent_Port repair()
+        
+        port Silent_Port noRepair()
+        
+        port Silent_Port transientFail()
+        
+        port Silent_Port noTransientFail()
+        
+        port Silent_Port readValue()
+        
+        
+        
+        place START, S1, S2, S3, S4, S5, S6
+        initial to START
+            do {
+	    lambda0 = readMTBF(ID); 
+	    lambda1 = readMTTF(ID); 
+	    lambda2 = readMTTR(ID);
+
+	    printf("-----------------------------------------------\n");
+	    printf("Execution time on device D.%d\n", ID);
+	    printf("var int D%d.s 0\n", ID);
+	    printf("var int D%d.t %d\n", ID, t);
+	    printf("-----------------------------------------------\n");
+            }
+            
+            on init_device
+                from START
+                to S1
+                do {
+
+
+                compute_fail(t, lambda0,ID);
+                compute_transientFail(t, lambda1,ID);
+                compute_repair(t, lambda2,ID);
+                distrib0 = init_distribution(sfail, size0);
+                distrib1 = init_distribution(stranfail, size1);
+                distrib2 = init_distribution(srepair, size2);
+
+
+                        x = select(distrib0, size0);
+	    printf("var int D%d.s 1\n", ID);
+	    printf("var int D%d.t %d\n", ID, t);
+                }
+            
+            on fail
+                from S1
+                to S4
+                provided ((x  ==  0)) do{
+                        x = select(distrib2, size2);
+	    printf("-----------------------------------------------\n");
+	    printf(" --------------------------------------------------------------------------------------------------Device D%d  fail \n", ID);
+	    printf("var int D%d.s 4\n", ID);
+	    printf("var int D%d.t %d\n", ID, t);
+	    printf("-----------------------------------------------\n");
+		}
+            
+            on noFail
+                from S1
+                to S3
+                provided ((x  ==  1))
+                do {
+                        x = select(distrib1, size1);
+	    printf("-----------------------------------------------\n");
+	    printf(" Device D%d  Nofail \n", ID);
+	    printf("var int D%d.s 3\n", ID);
+	    printf("var int D%d.t %d\n", ID, t);
+	    printf("-----------------------------------------------\n");
+                }
+            
+            on transientFail
+                from S3
+                to START
+                provided ((x  ==  0))
+                do {
+
+	    printf("-----------------------------------------------");
+	    printf(" Device D%d  Transientfail \n", ID);
+	    printf("var int D%d.s 0\n", ID);
+	    printf("var int D%d.t %d\n", ID, t);
+	    printf("-----------------------------------------------");
+                }
+            
+            on noTransientFail
+                from S3
+                to S5
+                provided ((x  ==  1)) do{
+	    printf("-----------------------------------------------\n");
+	    printf(" Device D%d  NoTransientfail \n", ID);
+	    printf("var int D%d.s 5\n", ID);
+	    printf("var int D%d.t %d\n", ID, t);
+	    printf("-----------------------------------------------\n");
+		}
+            
+            on noRepair
+                from S4
+                to S4
+                provided ((x  ==  0))
+		do{
+	    printf("-----------------------------------------------\n");
+	    printf(" Device D%d  NoRepair \n", ID);
+	    printf("var int D%d.s 4\n", ID);
+	    printf("var int D%d.t %d\n", ID, t);
+	    printf("-----------------------------------------------\n");
+		}
+            
+            on repair
+                from S4
+                to S5
+                provided ((x  ==  1))
+            		do{
+	    printf("-----------------------------------------------\n");
+	    printf(" Device D%d  Repair \n", ID);
+	    printf("var int D%d.s 5\n", ID);
+	    printf("var int D%d.t %d\n", ID, t);
+	    printf("-----------------------------------------------\n");
+		}
+            on readValue
+                from S5
+                to S6
+                do {
+                        value = read();
+	    printf("var int D%d.s 6\n", ID);
+	    printf("var int D%d.t %d\n", ID, t);
+                }
+            
+            on read_sensor
+                from S6
+                to START do{ 
+
+
+               	t = (t  +  5000);
+	    printf("-----------------------------------------------\n");
+	    printf(" Required reading to Device D%d \n", ID);
+	    printf("var int D%d.s 0\n", ID);
+	    printf("var int D%d.t %d\n", ID, t);
+	    printf("-----------------------------------------------\n");
+		}
+            
+            on subscribe
+                from S6
+                to START
+		do{
+	    printf("-----------------------------------------------\n");
+	    printf(" Required subscribing to Device D%d  \n", ID);
+	    printf("var int D%d.s 0\n", ID);
+	    printf("var int D%d.t %d\n", ID, t);
+
+	    printf("-----------------------------------------------\n");
+		}
+    
+    
+    end
+
+    
+    atom type RPControlBehavior ()
+    
+        
+        data float value
+        
+        data int done
+    
+        
+        
+        export port  Write_Read_Port rp_read_sensor(value)
+        
+        export port Subscribe_Port rp_subscribe()
+        
+        export port  Write_Read_Port rp_write_ia(value)
+        
+        
+        
+        port Silent_Port guard0_rp()
+        
+        port Silent_Port guard1_rp()
+        
+        port Silent_Port guard0_update()
+        
+        port Silent_Port guard1_update()
+        
+        place START, S1, S2, S3, S4
+        initial to START
+            do {
+                done = 0;
+                value = 0;
+            }
+            
+            on rp_subscribe
+                from START
+                to S1 do{ done=0;}
+            
+            on rp_read_sensor
+                from S1
+                to S1
+                provided ((done  ==  0))
+                do {
+                        done = 1;
+	    printf("-----------------------------------------------\n");
+	    printf(" Rain Precipitation reading  \n");
+	    printf("-----------------------------------------------\n");
+		
+                }
+            
+            on guard0_rp
+                from S1
+                to S2
+                provided (((value  <  10)  &&  (value  >  3))   && done==1)
+            
+            on guard1_rp
+                from S1
+                to S3
+                provided (((value  >=  10)  ||  (value  <=  3)) && done==1)
+                do {
+                        value = - 1;
+                }
+            
+            on guard0_update
+                from S2
+                to S4
+            
+            on guard1_update
+                from S3
+                to S4
+            
+            on rp_write_ia
+                from S4
+                to START
+
+    
+    
+    end
+
+    
+    atom type WHControlBehavior ()
+    
+        
+        data int done
+        
+        data float value
+    
+        
+        
+        export port Subscribe_Port wh_subscribe()
+        
+        export port  Write_Read_Port wh_read_sensor(value)
+        
+        export port  Write_Read_Port wh_write_ia(value)
+        
+        
+        
+        port Silent_Port guard0_wh()
+        
+        port Silent_Port guard1_wh()
+        
+        port Silent_Port guard0_update()
+        
+        port Silent_Port guard1_update()
+        
+        place Place1, S1, S2, S3, S4
+        initial to Place1
+            do {
+                done = 0;
+                value = 0;
+            }
+            
+            on wh_subscribe
+                from Place1
+                to S1 do{ done=0;}
+            
+            on wh_read_sensor
+                from S1
+                to S1
+                provided ((done  ==  0))
+                do {
+                        done = 1;
+	    printf("-----------------------------------------------\n");
+	    printf(" WATER HEIGHT reading  \n");
+	    printf("-----------------------------------------------\n");
+                }
+            
+            on guard0_wh
+                from S1
+                to S2
+                provided ((value  >  10000) && done==1)
+            
+            on guard1_wh
+                from S1
+                to S3
+                provided ((value  <=  10000) && done==1)
+            
+            on guard0_update
+                from S2
+                to S4
+            
+            on guard1_update
+                from S3
+                to S4
+                do {
+                        value = - 1;
+                }
+            
+            on wh_write_ia
+                from S4
+                to Place1
+    
+    
+    end
+
+    
+    atom type WVControlBehavior ()
+    
+        
+        data int done
+        
+        data float value
+    
+        
+        
+        export port Subscribe_Port wv_subscribe()
+        
+        export port  Write_Read_Port wv_read_sensor(value)
+        
+        export port  Write_Read_Port wv_write_ia(value)
+        
+        
+        port Silent_Port guard0_wv()
+        
+        port Silent_Port guard1_wv()
+        
+        port Silent_Port guard0_update()
+        
+        port Silent_Port guard1_update()
+        
+        place Place1, S1, S2, S3, S4
+        initial to Place1
+            do {
+                done = 0;
+                value = 0;
+            }
+            
+            on wv_subscribe
+                from Place1
+                to S1 do{ done=0;
+
+	    printf("-----------------------------------------------\n");
+	    printf(" WATER VOLUME reading  \n");
+	    printf("-----------------------------------------------\n");
+
+		}
+            
+            on wv_read_sensor
+                from S1
+                to S1
+                provided ((done  ==  0))
+                do {
+                        done = 1;
+                }
+            
+            on guard0_wv
+                from S1
+                to S2
+                provided (((value  <  300)  &&  (value  >  100)) && done==1)
+            
+            on guard1_wv
+                from S1
+                to S3
+                provided (((value  >=  300)  ||  (value  <=  100)) && done==1)
+            
+            on guard0_update
+                from S2
+                to S4
+            
+            on guard1_update
+                from S3
+                to S4
+            
+            on wv_write_ia
+                from S4
+                to Place1
+    
+    
+    end
+
+    
+    atom type AIBehavior ()
+    
+        
+        data float WH
+        data int whdone
+
+        data float WV
+        data int wvdone
+
+        data float RP
+         data int rpdone
+       
+        data float WF
+    
+        
+        
+        export port  Write_Read_Port wh_read_ia(WH)
+        
+        export port  Write_Read_Port wv_read_ia(WV)
+        
+        export port  Write_Read_Port rp_read_ia(RP)
+        
+        export port  Write_Read_Port wf_write_ia(WF)
+        
+        export port Subscribe_Port ai_subscribe()
+        
+        
+        port Silent_Port init_ia()
+        
+        port Silent_Port checkAvailability()
+        
+        port Silent_Port computeWF()
+        
+        
+        place START, S1, S2, S3, S4
+        initial to START
+            do {
+                WH = 0;
+                WV = 0;
+                RP = 0;
+                WF = 0;
+            }
+            
+            on init_ia
+                from START
+                to S1 do{               whdone =0; wvdone=0; rpdone=0;}
+            
+            on wh_read_ia
+                from S1
+                to S1                 provided ((whdone  ==  0))
+		do{ 
+	    printf("-----------------------------------------------\n");
+	    printf(" IA WATER HEIGHT reading  \n");
+	    printf("-----------------------------------------------\n");
+               whdone =1;
+		}
+            
+            on wv_read_ia
+                from S1
+                to S1                provided ((wvdone  ==  0))		do{ 
+	    printf("-----------------------------------------------\n");
+	    printf(" IA WATER VOLUME reading  \n");
+	    printf("-----------------------------------------------\n");
+		wvdone=1;
+		}
+            
+            on rp_read_ia
+                from S1
+                to S1		    provided ((rpdone  ==  0))		do{ 
+	    printf("-----------------------------------------------\n");
+	    printf(" IA RAIN PRECIPITATION reading  \n");
+	    printf("-----------------------------------------------\n");
+		rpdone =1;
+		}
+            
+            on checkAvailability
+                from S1
+                to S2
+                provided (((rpdone  ==  1)  &&  ((wvdone  ==  1)  &&  ((whdone  ==  1) ))))
+            
+            on computeWF
+                from S2
+                to S3
+                do {
+                        WF = compute_wf(RP, WF, WH);
+                }
+            
+            on ai_subscribe
+                from S3
+                to S4
+            
+            on wf_write_ia
+                from S4
+                to START
+    
+    
+    end
+
+    
+    atom type WFControlBehavior ()
+    
+        
+        data float value
+    
+        
+        
+        export port Subscribe_Port wf_subscribe()
+        
+        export port  Write_Read_Port wf_read_ia(value)
+        
+        export port Write_Read_Port wf_write(value)
+        
+        
+        
+        place START, S1, S2
+        initial to START
+            
+            on wf_subscribe
+                from START
+                to S1
+            
+            on wf_read_ia
+                from S1
+                to S2
+            
+            
+            on wf_write
+                from S2
+                to START
+    
+    
+    end
+
+        compound type Gateway ()
+    
+        component RPControlBehavior RPControl ()
+        component WHControlBehavior WHControl ()
+        component WVControlBehavior WVControl ()
+        component WFControlBehavior WFControl ()
+    
+        export port RPControl.rp_write_ia as rp_write_ia
+        export port WHControl.wh_write_ia as wh_write_ia
+        export port WVControl.wv_write_ia as wv_write_ia
+        export port WFControl.wf_read_ia as wf_read_ia
+        export port RPControl.rp_subscribe as rp_subscribe
+        export port WHControl.wh_subscribe as wh_subscribe
+        export port WVControl.wv_subscribe as wv_subscribe
+        export port WFControl.wf_subscribe as wf_subscribe
+        export port WFControl.wf_write as wf_write_actuator
+        export port WVControl.wv_read_sensor as wv_read_sensor
+        export port WHControl.wh_read_sensor as wh_read_sensor
+        export port RPControl.rp_read_sensor as rp_read_sensor
+    
+    end
+
+
+    compound type Compound ()
+    
+
+        component ActuatorBehavior WaterFlow (0,"0fail.txt", "0transientfail.txt", "0repair.txt")
+        component SensorBehavior WaterHeight (1,"1fail.txt", "1transientfail.txt", "1repair.txt")
+        component SensorBehavior RainPrecipitation (2,"2fail.txt", "2transientfail.txt", "2repair.txt")
+        component SensorBehavior WaterVolume (3,"3fail.txt", "3transientfail.txt", "3repair.txt")
+        component Gateway SensinactGateway ()
+        component AIBehavior AIBehavior ()
+    
+        connector RDV_subscribe_connector wh_subscribing (WaterHeight.subscribe, SensinactGateway.wh_subscribe)
+        connector RDV_subscribe_connector rp_subscribing (RainPrecipitation.subscribe, SensinactGateway.rp_subscribe)
+        connector RDV_subscribe_connector wv_subscribing (WaterVolume.subscribe, SensinactGateway.wv_subscribe)
+        connector RDV_read_write_connector whConnector (SensinactGateway.wh_read_sensor, WaterHeight.read_sensor)
+        connector RDV_read_write_connector rpConnector (SensinactGateway.rp_read_sensor, RainPrecipitation.read_sensor)
+        connector RDV_read_write_connector wvConnector (SensinactGateway.wv_read_sensor, WaterVolume.read_sensor)
+        connector RDV_read_write_connector RPConnectorIA (AIBehavior.rp_read_ia, SensinactGateway.rp_write_ia)
+        connector RDV_read_write_connector WHConnectorIA (AIBehavior.wh_read_ia, SensinactGateway.wh_write_ia)
+        connector RDV_read_write_connector WVConnectorIA (AIBehavior.wv_read_ia, SensinactGateway.wv_write_ia)
+        connector RDV_read_write_connector rdv_wf_write_ia (AIBehavior.wf_write_ia, SensinactGateway.wf_read_ia)
+        connector RDV_subscribe_connector rdv_wf_subsribing (AIBehavior.ai_subscribe, SensinactGateway.wf_subscribe)
+        connector RDV_read_write_connector wf_rdv_read_write (SensinactGateway.wf_write_actuator, WaterFlow.write_actuator)
+    
+    end
+
+    
+
+end
